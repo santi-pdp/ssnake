@@ -72,39 +72,54 @@ void print_title(display_t *window){
  *****************/
 //Generate a random point inside the window
 void add_food_piece(point_t *f_point, display_t *window){
-    unsigned int max_x = window->columns-2;
-    unsigned int min_x = 2;
-    unsigned int max_y = window->rows-2;
-    unsigned int min_y = 2;
-    f_point->x = (rand()%(max_x-min_x))+min_x;
-    f_point->y = (rand()%(max_y-min_y))+min_y;
+	unsigned int max_x = window->columns-2;
+	unsigned int min_x = 2;
+	unsigned int max_y = window->rows-2;
+	unsigned int min_y = 2;
+	f_point->x = (rand()%(max_x-min_x))+min_x;
+	f_point->y = (rand()%(max_y-min_y))+min_y;
 }
 
 /* COLLISION WITH WALLS
  ***********************/
 //check whether the snake hits a wall or not
 unsigned int collision_with_walls(snake_t *snake, display_t *window){
-    return (snake->positions[0]->x > window->columns-2 || snake->positions[0]->x < 2 ||
-            snake->positions[0]->y > window->rows-2 || snake->positions[0]->y < 2);
+	return (snake->positions[0]->x > window->columns-2 || snake->positions[0]->x < 2 ||
+		snake->positions[0]->y > window->rows-2 || snake->positions[0]->y < 2);
 }
 
 /* HITS FOOD
  ************/
 //check whether the snake hits the food or not
 unsigned int hit_food(snake_t *snake, point_t *food_piece){
-    return (snake->positions[0]->x == food_piece->x)&&(snake->positions[0]->y == food_piece->y);
+	return (snake->positions[0]->x == food_piece->x)&&(snake->positions[0]->y == food_piece->y);
+}
+
+/* HITS ITSELF
+ ***********************/
+unsigned int hits_itself(snake_t *snake){
+	unsigned int k;
+	for(k=1;k<snake->length;k++){
+		if(snake->positions[k]){
+			if(snake->positions[k]->x == snake->positions[0]->x && snake->positions[k]->y == snake->positions[0]->y){
+				//hits head with tail!
+				return DOES_COLLIDE;
+			}
+		}
+	}
+	return DOES_NOT_COLLIDE;	
 }
 
 /* MOVES VERTICAL
  *****************/
 unsigned int snake_moves_vertical(snake_t *snake){
-    return snake->vector->vy;
+	return snake->vector->vy;
 }
 
 /* MOVES HORIZONTAL
  *******************/
 unsigned int snake_moves_horizontal(snake_t *snake){
-    return snake->vector->vx;
+	return snake->vector->vx;
 }
 
 void init_snake(snake_t *snake, display_t *window){
@@ -185,7 +200,7 @@ void *draw(void *data){
 					snake->length++;
 					add_food_piece(food_piece, window);
 				}
-				if(collision_with_walls(snake, window) == DOES_COLLIDE){
+				if(collision_with_walls(snake, window) == DOES_COLLIDE || hits_itself(snake) == DOES_COLLIDE){
 					//get the score
 					resulting_score = game_status->score;
 					//set the in_game flag to go to the game over menu

@@ -1,9 +1,7 @@
 #include <stdlib.h>
-#include <curses.h>
 #include <ncurses.h>
 #include <pthread.h>
 #include <string.h>
-#include <time.h>
 #include <unistd.h>
 #include <math.h>
 
@@ -17,7 +15,6 @@
 #define DOES_COLLIDE 1
 #define DOES_NOT_COLLIDE 0
 #define SCORE_UNIT 10
-#define OFF 0
 #define PLAYING 1
 #define GAME_OVER_MENU 2
 

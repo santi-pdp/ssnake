@@ -15,6 +15,7 @@
 #define DOES_COLLIDE 1
 #define DOES_NOT_COLLIDE 0
 #define SCORE_UNIT 10
+#define OFF 0
 #define PLAYING 1
 #define GAME_OVER_MENU 2
 
@@ -214,7 +215,7 @@ int main(int argc, char **argv){
 	srand(time(NULL));
 	
 	//draw thread id
-	pthread_t drawer_thread;	
+	pthread_t drawing_thread;	
 	
 	//create the snake
 	snake_t snake;
@@ -256,7 +257,7 @@ int main(int argc, char **argv){
 	init_snake(&snake, &window);
 	
 	//start drawing thread
-	pthread_create(&drawer_thread, NULL, draw, (void*)&game_status);
+	pthread_create(&drawing_thread, NULL, draw, (void*)&game_status);
 	
 	
 	while((command = getch())!=113){
@@ -287,6 +288,8 @@ int main(int argc, char **argv){
 			
 		}
 	}
+	game_status.in_game = OFF;
+	pthread_join(drawing_thread, NULL);
 	//end the window
 	endwin();
 	return 0;

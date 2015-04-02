@@ -6,9 +6,10 @@
 #include <math.h>
 
 #define GAME_TITLE "THE SNAKE GAME!"
-#define INSTRUCTIONS "Press ENTER to continue. Use the arrow keys to move the snake"
+#define INSTRUCTIONS "Press ENTER to continue. Use the arrow keys to move the snake. Press P to pause the game."
 #define LICENCE "Author: Santi PdP"
 #define GAME_OVER "GAME OVER"
+#define PAUSE_TEXT "PAUSED. PRESS P TO CONTINUE"
 #define SNAKE_BODY_PIECE 'o'
 #define FOOD_PIECE '+'
 #define MAX_LENGTH 1024000
@@ -18,6 +19,10 @@
 #define OFF 0
 #define PLAYING 1
 #define GAME_OVER_MENU 2
+#define PAUSED 3
+#define KEY_SPACE 32
+#define KEY_Q 113
+#define KEY_P 112
 
 //display structure 
 typedef struct{
@@ -50,6 +55,8 @@ typedef struct{
 	int in_game;
 }game_status_t;
 
+/* WRITE LOG
+ *************/
 void write_log_panel(const char *log_message, display_t *window){
 		mvprintw(window->rows-2,2,"%s\n",log_message);
 		refresh();
@@ -84,8 +91,8 @@ void add_food_piece(point_t *f_point, display_t *window){
  ***********************/
 //check whether the snake hits a wall or not
 unsigned int collision_with_walls(snake_t *snake, display_t *window){
-	return (snake->positions[0]->x > window->columns-2 || snake->positions[0]->x < 2 ||
-		snake->positions[0]->y > window->rows-2 || snake->positions[0]->y < 2);
+	return (snake->positions[0]->x > window->columns-1 || snake->positions[0]->x < 1 ||
+		snake->positions[0]->y > window->rows-1 || snake->positions[0]->y < 1);
 }
 
 /* HITS FOOD
@@ -158,7 +165,7 @@ void *draw(void *data){
 	point_t *food_piece = game_status->food_piece;
 	unsigned int k,n;
 	char score_panel[5];
-	char positions[20];
+	//char positions[20];
 	unsigned int resulting_score = 0;
 	unsigned int snake_size;
 	//loop whilst the in_game flag is set on
@@ -167,6 +174,10 @@ void *draw(void *data){
 		if(game_status->in_game == PLAYING){
 				//draw box
 				box(stdscr, 0, 0);
+				//DRAW SCORE PANEL**********************************************************************
+				mvprintw(1, 1, "Score: ");
+				sprintf(score_panel, "%d", game_status->score);
+				mvprintw(1, 10, score_panel);
 				//DRAW SNAKE**************************************************************************
 				snake_size = snake->length;
 				
@@ -184,17 +195,13 @@ void *draw(void *data){
 				}
 				snake->positions[0] = new_point;
 				for(n=0;n<snake_size;n++){
-					sprintf(positions, "%d,,%d", snake->positions[n]->y,snake->positions[n]->x);
-					write_log_panel(positions, window);
+					//sprintf(positions, "%d,,%d", snake->positions[n]->y,snake->positions[n]->x);
+					//write_log_panel(positions, window);
 					mvaddch(snake->positions[n]->y, snake->positions[n]->x, SNAKE_BODY_PIECE);
 				}
 				
 				//DRAW FOOD PIECE***********************************************************************
 				mvaddch(food_piece->y, food_piece->x, FOOD_PIECE);
-				//DRAW SCORE PANEL**********************************************************************
-				mvprintw(2, 2, "Score: ");
-				sprintf(score_panel, "%d", game_status->score);
-				mvprintw(2, 10, score_panel);
 				if(hit_food(snake, food_piece) == DOES_COLLIDE){
 					game_status->score+=SCORE_UNIT;
 					snake->length++;
@@ -217,7 +224,12 @@ void *draw(void *data){
 			mvprintw(window->rows/2, (window->columns-21)/2, "You scored: %d points!", resulting_score);
 			mvprintw(window->rows/2 + 2, (window->columns - strlen(INSTRUCTIONS))/2, INSTRUCTIONS);
 		}
-	
+		else if(game_status->in_game == PAUSED){
+			mvprintw(window->rows/2-2, (window->columns - strlen(PAUSE_TEXT))/2, PAUSE_TEXT);
+			refresh();
+			usleep(50000);
+			continue;
+		}
 		refresh();
 		usleep(50000);
 	}
@@ -274,8 +286,7 @@ int main(int argc, char **argv){
 	//start drawing thread
 	pthread_create(&drawing_thread, NULL, draw, (void*)&game_status);
 	
-	
-	while((command = getch())!=113){
+	while((command = getch())!=KEY_Q){
 		switch(command){
 			case KEY_LEFT:
 				if(snake_moves_horizontal(&snake)) break;
@@ -297,8 +308,14 @@ int main(int argc, char **argv){
 				snake.vector->vx = 0;
 				snake.vector->vy = 1;
 				break;
-			case 32:
+			case KEY_SPACE:
 				game_status.in_game = PLAYING;
+				break;
+			case KEY_P:
+				if(game_status.in_game == PAUSED)
+					game_status.in_game = PLAYING;
+				else
+					game_status.in_game = PAUSED;
 				break;
 			
 		}

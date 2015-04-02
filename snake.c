@@ -11,7 +11,7 @@
 #define GAME_OVER "GAME OVER"
 #define SNAKE_BODY_PIECE 'o'
 #define FOOD_PIECE '+'
-#define MAX_LENGTH 128
+#define MAX_LENGTH 1024000
 #define DOES_COLLIDE 1
 #define DOES_NOT_COLLIDE 0
 #define SCORE_UNIT 10
@@ -135,7 +135,7 @@ void init_snake(snake_t *snake, display_t *window){
 	
 	//set up the snake
 	snake->vector = v;
-	snake->positions = (point_t **)calloc(1,MAX_LENGTH);
+	snake->positions = (point_t **)calloc(1,MAX_LENGTH*sizeof(point_t));
 	snake->positions[0] = init_p;
 	snake->length = 1;
 }

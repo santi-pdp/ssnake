@@ -5,3 +5,6 @@ Compile it and play!
 $ make
 $ ./snake
 ```
+libraries required:
+* libncurses5-dev
+

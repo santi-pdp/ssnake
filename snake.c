@@ -12,7 +12,7 @@
 #define PAUSE_TEXT "PAUSED. PRESS P TO CONTINUE"
 #define SNAKE_BODY_PIECE 'o'
 #define FOOD_PIECE '+'
-#define MAX_LENGTH 1024000
+#define MAX_LENGTH 10240000
 #define DOES_COLLIDE 1
 #define DOES_NOT_COLLIDE 0
 #define SCORE_UNIT 10
@@ -23,6 +23,7 @@
 #define KEY_SPACE 32
 #define KEY_Q 113
 #define KEY_P 112
+#define NUM_FOOD_PIECES 1
 
 //display structure 
 typedef struct{
@@ -201,11 +202,13 @@ void *draw(void *data){
 				}
 				
 				//DRAW FOOD PIECE***********************************************************************
-				mvaddch(food_piece->y, food_piece->x, FOOD_PIECE);
-				if(hit_food(snake, food_piece) == DOES_COLLIDE){
-					game_status->score+=SCORE_UNIT;
-					snake->length++;
-					add_food_piece(food_piece, window);
+				for(n=0;n<NUM_FOOD_PIECES;n++){
+					mvaddch(food_piece[n].y, food_piece[n].x, FOOD_PIECE);
+					if(hit_food(snake, &food_piece[n]) == DOES_COLLIDE){
+						game_status->score+=SCORE_UNIT;
+						snake->length++;
+						add_food_piece(&food_piece[n], window);
+					}
 				}
 				if(collision_with_walls(snake, window) == DOES_COLLIDE || hits_itself(snake) == DOES_COLLIDE){
 					//get the score
@@ -253,13 +256,13 @@ int main(int argc, char **argv){
 	display_t window;
 	
 	//create the food piece
-	point_t food_piece;
+	point_t food_piece[NUM_FOOD_PIECES];
 	
 	//init game status
 	game_status_t game_status;
 	game_status.snake = &snake;
 	game_status.window = &window;
-	game_status.food_piece = &food_piece;
+	game_status.food_piece = food_piece;
 	game_status.score = 0;
 	game_status.in_game = PLAYING;
 	
@@ -277,9 +280,11 @@ int main(int argc, char **argv){
 	//print game title
 	print_title(&window);
 	
-	//set up the first food piece
-	add_food_piece(&food_piece, &window);
-	
+	int n;
+	for(n=0;n<NUM_FOOD_PIECES;n++){
+		//set up the first food pieces
+		add_food_piece(&food_piece[n], &window);
+	}
 	//init snake
 	init_snake(&snake, &window);
 	

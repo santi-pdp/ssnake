@@ -24,6 +24,7 @@
 #define KEY_Q 113
 #define KEY_P 112
 #define NUM_FOOD_PIECES 1
+#define MV_DATA_FILEPATH "movement.data"
 
 //display structure 
 typedef struct{
@@ -38,7 +39,7 @@ typedef struct{
 
 //point structure
 typedef struct{
-	unsigned int x,y;
+	int x,y;
 }point_t;
 
 //snake structure that has a vector of change and many positions
@@ -54,6 +55,7 @@ typedef struct{
 	point_t *food_piece;
 	unsigned int score;
 	int in_game;
+	FILE *mv_data_file;
 }game_status_t;
 
 /* WRITE LOG
@@ -155,6 +157,57 @@ point_t * create_next_point(snake_t *snake){
 	return new_point;
 }
 
+//encode a movement vector to one-hot-coding string
+char *encode_vector(vector_t *input_vector){
+	//4 directions: 0001,0010,0100,1000
+	char *code = (char*)calloc(sizeof(char),5);
+	if(input_vector->vx == -1){
+		strcpy(code, "0001");
+	}else if(input_vector->vx == 1){
+		strcpy(code, "0010");
+	}else if(input_vector->vy == -1){
+		strcpy(code, "0100");
+	}else if(input_vector->vy == 1){
+		strcpy(code, "1000");
+	}
+	//make sure we have a code to return and
+	//nothing is corrupted
+	return code;
+}
+
+void write_movement_data(game_status_t *game_data){
+	game_status_t *game_status = game_data;
+	//get the snake
+	snake_t *snake = game_status->snake;
+	//get he display
+	display_t *window = game_status->window;
+	//get the food piece
+	point_t *food_piece = &game_status->food_piece[0];
+	//get file to write to
+	FILE* mv_file = game_data->mv_data_file;
+	//store integer positions for sake of simplicity in notation afterwards
+	int snake_position_x = snake->positions[0]->x;
+	int snake_position_y = snake->positions[0]->y;
+	int food_position_x = food_piece->x;
+	int food_position_y = food_piece->y;
+	//calculate snake<->walls distances
+	float dw1n=(snake_position_x/(float)window->columns); 
+	float dw2n=(snake_position_y/(float)window->rows);
+	float dw3 = sqrt(pow((float)snake_position_x-window->columns,2));
+	float dw4 = sqrt(pow((float)snake_position_y-window->rows,2));
+	float dw3n=dw3/(float)window->columns;
+	float dw4n=dw4/(float)window->rows;
+	//calculate distance from snake to food
+	float df = sqrt(pow(snake_position_x-food_position_x,2)+pow(snake_position_y-food_position_y,2));
+	float dfn = df/sqrt(pow(window->columns,2)+pow(window->rows,2));
+	//get the ate food flag
+	int ate = hit_food(snake,food_piece);
+	//now add the output direction (t)
+	char *curr_direction = encode_vector(snake->vector);
+	fprintf(mv_file, "%f\t%f\t%f\t%f\t%f\t%d\t%s\n",dw1n,dw2n,dw3n,dw4n,dfn,ate,curr_direction);
+	free(curr_direction);
+}
+
 void *draw(void *data){
 	//cast the game status structure
 	game_status_t *game_status = (game_status_t *)data;
@@ -173,6 +226,7 @@ void *draw(void *data){
 	while(game_status->in_game){
 		clear();
 		if(game_status->in_game == PLAYING){
+				//cache last direction (t-1)
 				//draw box
 				box(stdscr, 0, 0);
 				//DRAW SCORE PANEL**********************************************************************
@@ -183,7 +237,7 @@ void *draw(void *data){
 				snake_size = snake->length;
 				
 				point_t *new_point = create_next_point(snake);
-				
+
 				//free last position
 				if(snake->positions[snake_size-1]){
 					//write_log_panel("Have to delete this cell\n", window);
@@ -194,12 +248,16 @@ void *draw(void *data){
 					//shift positions
 					snake->positions[k] = snake->positions[k-1];
 				}
+
 				snake->positions[0] = new_point;
 				for(n=0;n<snake_size;n++){
 					//sprintf(positions, "%d,,%d", snake->positions[n]->y,snake->positions[n]->x);
 					//write_log_panel(positions, window);
 					mvaddch(snake->positions[n]->y, snake->positions[n]->x, SNAKE_BODY_PIECE);
 				}
+
+				//Write status data
+				write_movement_data(game_status);
 				
 				//DRAW FOOD PIECE***********************************************************************
 				for(n=0;n<NUM_FOOD_PIECES;n++){
@@ -241,6 +299,18 @@ void *draw(void *data){
 }
 	
 int main(int argc, char **argv){
+	FILE *mv_data_file = NULL;
+	if(argc>1){
+		if(!strcmp(argv[1],"w")||!strcmp(argv[1],"-w")){
+			//Write data file flag activated
+			mv_data_file = fopen(MV_DATA_FILEPATH,"a");
+		}else{
+			fprintf(stderr, "Unrecognized %s argument!\n",argv[1]);
+			fprintf(stderr, "Program usage: %s [-w]\n",argv[0]);
+			fprintf(stderr, "\t-w: optional flag parameter to write movement data file to train a ML system\n");
+			exit(1);
+		}
+	}
 	//set up random seed
 	srand(time(NULL));
 	
@@ -265,6 +335,7 @@ int main(int argc, char **argv){
 	game_status.food_piece = food_piece;
 	game_status.score = 0;
 	game_status.in_game = PLAYING;
+	game_status.mv_data_file = mv_data_file;
 	
 	//init ncurses mode
 	initscr();
@@ -329,5 +400,8 @@ int main(int argc, char **argv){
 	pthread_join(drawing_thread, NULL);
 	//end the window
 	endwin();
+	if(mv_data_file){
+		fclose(mv_data_file);
+	}
 	return 0;
 }

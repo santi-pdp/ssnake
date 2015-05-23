@@ -58,6 +58,130 @@ typedef struct{
 	FILE *mv_data_file;
 }game_status_t;
 
+void write_log_panel(const char *log_message, display_t *window);
+void print_title(display_t *window);
+void add_food_piece(point_t *f_point, display_t *window);
+unsigned int collision_with_walls(snake_t *snake, display_t *window);
+unsigned int hit_food(snake_t *snake, point_t *food_piece);
+unsigned int hits_itself(snake_t *snake);
+unsigned int snake_moves_vertical(snake_t *snake);
+unsigned int snake_moves_horizontal(snake_t *snake);
+void init_snake(snake_t *snake, display_t *window);
+point_t * create_next_point(snake_t *snake);
+char *encode_vector(vector_t *input_vector);
+void write_movement_data(game_status_t *game_data);
+void *draw(void *data);
+
+/* MAIN
+********/
+int main(int argc, char **argv){
+	FILE *mv_data_file = NULL;
+	if(argc>1){
+		if(!strcmp(argv[1],"w")||!strcmp(argv[1],"-w")){
+			//Write data file flag activated
+			mv_data_file = fopen(MV_DATA_FILEPATH,"a");
+		}else{
+			fprintf(stderr, "Unrecognized %s argument!\n",argv[1]);
+			fprintf(stderr, "Program usage: %s [-w]\n",argv[0]);
+			fprintf(stderr, "\t-w: optional flag parameter to write movement data file to train a ML system\n");
+			exit(1);
+		}
+	}
+	//set up random seed
+	srand(time(NULL));
+	
+	//draw thread id
+	pthread_t drawing_thread;	
+	
+	//create the snake
+	snake_t snake;
+
+	int command;
+	
+	//keep track of the window size
+	display_t window;
+	
+	//create the food piece
+	point_t food_piece[NUM_FOOD_PIECES];
+	
+	//init game status
+	game_status_t game_status;
+	game_status.snake = &snake;
+	game_status.window = &window;
+	game_status.food_piece = food_piece;
+	game_status.score = 0;
+	game_status.in_game = PLAYING;
+	game_status.mv_data_file = mv_data_file;
+	
+	//init ncurses mode
+	initscr();
+	//get keys
+	keypad(stdscr, TRUE);
+	//don't wait until EOL to get char
+	noecho();
+	//don't show cursor
+	curs_set(0);
+	//get window size and store values in the window struct
+	getmaxyx(stdscr, window.rows, window.columns);
+	
+	//print game title
+	print_title(&window);
+	
+	int n;
+	for(n=0;n<NUM_FOOD_PIECES;n++){
+		//set up the first food pieces
+		add_food_piece(&food_piece[n], &window);
+	}
+	//init snake
+	init_snake(&snake, &window);
+	
+	//start drawing thread
+	pthread_create(&drawing_thread, NULL, draw, (void*)&game_status);
+	
+	while((command = getch())!=KEY_Q){
+		switch(command){
+			case KEY_LEFT:
+				if(snake_moves_horizontal(&snake)) break;
+				snake.vector->vx = -1;
+				snake.vector->vy = 0;
+				break;
+			case KEY_RIGHT:
+				if(snake_moves_horizontal(&snake)) break;
+				snake.vector->vx = 1;
+				snake.vector->vy = 0;
+				break;
+			case KEY_UP:
+				if(snake_moves_vertical(&snake)) break;
+				snake.vector->vx = 0;
+				snake.vector->vy = -1;
+				break;
+			case KEY_DOWN:
+				if(snake_moves_vertical(&snake)) break;
+				snake.vector->vx = 0;
+				snake.vector->vy = 1;
+				break;
+			case KEY_SPACE:
+				game_status.in_game = PLAYING;
+				break;
+			case KEY_P:
+				if(game_status.in_game == PAUSED)
+					game_status.in_game = PLAYING;
+				else
+					game_status.in_game = PAUSED;
+				break;
+			
+		}
+	}
+	game_status.in_game = OFF;
+	pthread_join(drawing_thread, NULL);
+	//end the window
+	endwin();
+	if(mv_data_file){
+		fclose(mv_data_file);
+	}
+	return 0;
+}
+
 /* WRITE LOG
  *************/
 void write_log_panel(const char *log_message, display_t *window){
@@ -185,6 +309,7 @@ void write_movement_data(game_status_t *game_data){
 	point_t *food_piece = &game_status->food_piece[0];
 	//get file to write to
 	FILE* mv_file = game_data->mv_data_file;
+	if(!mv_file) return;
 	//store integer positions for sake of simplicity in notation afterwards
 	int snake_position_x = snake->positions[0]->x;
 	int snake_position_y = snake->positions[0]->y;
@@ -296,112 +421,4 @@ void *draw(void *data){
 	}
 	
 	return NULL;
-}
-	
-int main(int argc, char **argv){
-	FILE *mv_data_file = NULL;
-	if(argc>1){
-		if(!strcmp(argv[1],"w")||!strcmp(argv[1],"-w")){
-			//Write data file flag activated
-			mv_data_file = fopen(MV_DATA_FILEPATH,"a");
-		}else{
-			fprintf(stderr, "Unrecognized %s argument!\n",argv[1]);
-			fprintf(stderr, "Program usage: %s [-w]\n",argv[0]);
-			fprintf(stderr, "\t-w: optional flag parameter to write movement data file to train a ML system\n");
-			exit(1);
-		}
-	}
-	//set up random seed
-	srand(time(NULL));
-	
-	//draw thread id
-	pthread_t drawing_thread;	
-	
-	//create the snake
-	snake_t snake;
-
-	int command;
-	
-	//keep track of the window size
-	display_t window;
-	
-	//create the food piece
-	point_t food_piece[NUM_FOOD_PIECES];
-	
-	//init game status
-	game_status_t game_status;
-	game_status.snake = &snake;
-	game_status.window = &window;
-	game_status.food_piece = food_piece;
-	game_status.score = 0;
-	game_status.in_game = PLAYING;
-	game_status.mv_data_file = mv_data_file;
-	
-	//init ncurses mode
-	initscr();
-	//get keys
-	keypad(stdscr, TRUE);
-	//don't wait until EOL to get char
-	noecho();
-	//don't show cursor
-	curs_set(0);
-	//get window size and store values in the window struct
-	getmaxyx(stdscr, window.rows, window.columns);
-	
-	//print game title
-	print_title(&window);
-	
-	int n;
-	for(n=0;n<NUM_FOOD_PIECES;n++){
-		//set up the first food pieces
-		add_food_piece(&food_piece[n], &window);
-	}
-	//init snake
-	init_snake(&snake, &window);
-	
-	//start drawing thread
-	pthread_create(&drawing_thread, NULL, draw, (void*)&game_status);
-	
-	while((command = getch())!=KEY_Q){
-		switch(command){
-			case KEY_LEFT:
-				if(snake_moves_horizontal(&snake)) break;
-				snake.vector->vx = -1;
-				snake.vector->vy = 0;
-				break;
-			case KEY_RIGHT:
-				if(snake_moves_horizontal(&snake)) break;
-				snake.vector->vx = 1;
-				snake.vector->vy = 0;
-				break;
-			case KEY_UP:
-				if(snake_moves_vertical(&snake)) break;
-				snake.vector->vx = 0;
-				snake.vector->vy = -1;
-				break;
-			case KEY_DOWN:
-				if(snake_moves_vertical(&snake)) break;
-				snake.vector->vx = 0;
-				snake.vector->vy = 1;
-				break;
-			case KEY_SPACE:
-				game_status.in_game = PLAYING;
-				break;
-			case KEY_P:
-				if(game_status.in_game == PAUSED)
-					game_status.in_game = PLAYING;
-				else
-					game_status.in_game = PAUSED;
-				break;
-			
-		}
-	}
-	game_status.in_game = OFF;
-	pthread_join(drawing_thread, NULL);
-	//end the window
-	endwin();
-	if(mv_data_file){
-		fclose(mv_data_file);
-	}
-	return 0;
 }
